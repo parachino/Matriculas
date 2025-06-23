@@ -1,0 +1,37 @@
+<html>
+<head>
+  <script type="text/javascript">
+    function onscan(scandata) {
+      const textarea = document.getElementById("plateLog");
+      textarea.value += scandata + "\n"; // Añadir nueva matrícula
+      alert("License plate result: " + scandata);
+    }
+
+    function startscan(platefield) {
+      window.location = "readplate://" + platefield;
+    }
+
+    function saveToFile() {
+      const content = document.getElementById("plateLog").value;
+      const blob = new Blob([content], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "license_plates_log.txt";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  </script>
+</head>
+
+<body>
+  <h3>Escáner de Matrículas</h3>
+
+  <input onclick="startscan('platefield1')" type="button" value="Escanear matrícula" /><br /><br />
+
+  <!-- Área donde se acumulan las matrículas -->
+  <textarea id="plateLog" rows="10" cols="50" placeholder="Aquí se irán listando las matrículas..."></textarea><br /><br />
+
+  <input onclick="saveToFile()" type="button" value="Guardar archivo con matrículas" />
+
+</body>
+</html>
