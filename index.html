@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <title>Lector de Matrículas</title>
   <style>
-    body { font-family: sans-serif; }
+    body {
+      font-family: sans-serif;
+    }
     .match {
       background-color: red;
       color: white;
@@ -24,10 +26,38 @@
       margin-bottom: 4px;
     }
   </style>
+</head>
+<body>
+  <h2>Lectura de Matrículas</h2>
+
+  <p>Última matrícula leída: <strong id="lastPlate">---</strong></p>
+  <button onclick="copyLastPlate()">Copiar última matrícula</button>
+  <button onclick="copyAllPlates()">Copiar todas</button>
+  <button onclick="guardarDatos()">💾 Guardar historial</button>
+
+  <br><br>
+
+  <label>Número de coincidencias:</label>
+  <input type="text" id="matchCount" value="0" readonly style="width: 40px; text-align: center;" />
+
+  <h3>🧾 Lista manual de matrículas (lista negra):</h3>
+  <input type="file" accept=".txt" onchange="loadFile(event)" />
+  <br><br>
+  <textarea id="manualListInput" oninput="updateManualList()" rows="6" cols="40" style="width: 100%;"></textarea>
+  <div id="manualListDisplay"></div>
+
+  <h3>📋 Historial de lecturas (última arriba):</h3>
+  <div id="scanHistory"></div>
+
+  <br><br>
+  <button onclick="startscan()" style="font-size: 20px">📷 Iniciar escaneo continuo de matrículas</button>
+
+  <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+
   <script>
     let scanning = false;
     let manualListRaw = [];
-    let alertPlayedForPlates = new Set();
+    const alertPlayedForPlates = new Set();
 
     function onscan(scandata) {
       const plate = scandata.toUpperCase();
@@ -36,14 +66,34 @@
       const matchCount = checkManualListMatch(plate);
       addToScanHistory(plate, timestamp, matchCount);
 
-      // Solo sonar si es la primera vez que se detecta esa matrícula con coincidencia
       if (matchCount > 0 && !alertPlayedForPlates.has(plate)) {
-        document.getElementById("beep").play();
+        const beep = document.getElementById("beep");
+        beep.currentTime = 0;
+        beep.play().catch(err => console.log("Error al reproducir sonido:", err));
         alertPlayedForPlates.add(plate);
         scanning = false;
+
+        // Mostrar alerta después de una pequeña pausa para que el sonido comience
+        setTimeout(() => {
+          const matchedLines = getMatchedLines(plate);
+          if (matchedLines.length > 0) {
+            alert("⚠️ Coincidencias detectadas:\n\n" + matchedLines.join("\n"));
+          }
+        }, 200);
       } else if (scanning) {
         setTimeout(() => startscan(), 500);
       }
+    }
+
+    function getMatchedLines(scanned) {
+      const scannedUpper = scanned.toUpperCase();
+      const lines = [];
+      for (let i = 0; i < manualListRaw.length; i++) {
+        if (manualListRaw[i].includes(scannedUpper)) {
+          lines.push(manualListRaw[i]);
+        }
+      }
+      return lines;
     }
 
     function startscan() {
@@ -62,6 +112,16 @@
       navigator.clipboard.writeText(text);
     }
 
+    function guardarDatos() {
+      const lines = Array.from(document.getElementById("scanHistory").children);
+      const text = lines.map(line => line.textContent).join("\n");
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "historial_matriculas.txt";
+      link.click();
+    }
+
     function updateManualList() {
       const raw = document.getElementById("manualListInput").value;
       manualListRaw = raw.toUpperCase().split(/\n/).map(l => l.trim()).filter(l => l !== "");
@@ -75,7 +135,9 @@
         const line = document.createElement("div");
         line.textContent = plate;
         line.className = "line";
-        if (matchedIndices.includes(index)) line.classList.add("match");
+        if (matchedIndices.includes(index)) {
+          line.classList.add("match");
+        }
         container.appendChild(line);
       });
     }
@@ -83,24 +145,14 @@
     function checkManualListMatch(scanned) {
       const scannedUpper = scanned.toUpperCase();
       const matches = [];
-      const matchedLines = [];
-
       for (let i = 0; i < manualListRaw.length; i++) {
         if (manualListRaw[i].includes(scannedUpper)) {
           matches.push(i);
-          matchedLines.push(manualListRaw[i]);
         }
       }
-
       renderManualList(matches);
       updateMatchCount(matches.length);
       addMatchesToHistory(matches);
-
-      // Mostrar alerta solo si hay líneas coincidentes
-      if (matchedLines.length > 0) {
-        alert("⚠️ Coincidencias detectadas:\n\n" + matchedLines.join("\n"));
-      }
-
       return matches.length;
     }
 
@@ -138,48 +190,6 @@
       };
       reader.readAsText(file);
     }
-
-    function downloadHistory() {
-      const lines = Array.from(document.getElementById("scanHistory").children);
-      const text = lines.map(line => line.textContent).join("\n");
-      const blob = new Blob([text], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "historial_matriculas.txt";
-      a.click();
-      URL.revokeObjectURL(url);
-    }
   </script>
-</head>
-<body>
-  <h2>Lectura de Matrículas</h2>
-
-  <p>Última matrícula leída: <strong id="lastPlate">---</strong></p>
-
-  <button onclick="copyLastPlate()">📋 Copiar última matrícula</button>
-  <button onclick="copyAllPlates()">📋 Copiar todas</button>
-  <button onclick="downloadHistory()">💾 Guardar historial</button>
-
-  <br><br>
-
-  <label>Número de coincidencias:</label>
-  <input type="text" id="matchCount" value="0" readonly style="width: 40px; text-align: center;" />
-
-  <h3>🧾 Lista manual de matrículas (lista negra):</h3>
-  <input type="file" accept=".txt" onchange="loadFile(event)" />
-  <br><br>
-  <textarea id="manualListInput" oninput="updateManualList()" rows="6" cols="40" style="width: 100%;"></textarea>
-  <div id="manualListDisplay"></div>
-
-  <h3>📋 Historial de lecturas (última arriba):</h3>
-  <div id="scanHistory"></div>
-
-  <br><br><br>
-
-  <button onclick="startscan()" style="font-size: 20px">📷 Iniciar escaneo continuo de matrículas</button>
-
-  <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
 </body>
 </html>
