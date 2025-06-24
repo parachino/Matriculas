@@ -1,18 +1,38 @@
 <html>
 <head>
+  <style>
+    .match {
+      color: red;
+      font-weight: bold;
+    }
+    .manual-list {
+      white-space: pre-line;
+      border: 1px solid #ccc;
+      padding: 10px;
+      width: 300px;
+      height: 200px;
+      overflow-y: auto;
+    }
+  </style>
   <script type="text/javascript">
     let lastPlate = "";
     let scanning = false;
+    let manualListRaw = [];
 
     function onscan(scandata) {
-      const textarea = document.getElementById("plateLog");
-      lastPlate = scandata;
+      if (scandata !== lastPlate) {
+        lastPlate = scandata;
 
-      // Añadir matrícula al log
-      textarea.value += scandata + "\n";
+        const textarea = document.getElementById("plateLog");
+        textarea.value += scandata + "\n";
+        document.getElementById("lastPlateDisplay").innerText = "Última matrícula: " + scandata;
 
-      // Mostrar la última matrícula leída
-      document.getElementById("lastPlateDisplay").innerText = "Última matrícula: " + scandata;
+        checkManualListMatch(scandata);
+      }
+
+      if (scanning) {
+        startscan('platefield1');
+      }
     }
 
     function startscan(platefield) {
@@ -20,15 +40,34 @@
     }
 
     function startScanningLoop() {
-      if (scanning) return; // Evitar múltiples bucles si se pulsa más de una vez
+      if (scanning) return;
       scanning = true;
+      updateManualList();
+      startscan('platefield1');
+    }
 
-      function loop() {
-        startscan('platefield1');
-        setTimeout(loop, 500); // repetir cada 500 milisegundos
-      }
+    function updateManualList() {
+      const raw = document.getElementById("manualInput").value.trim().split("\n");
+      manualListRaw = raw.map(p => p.trim().toUpperCase()).filter(p => p !== "");
+      renderManualList();
+    }
 
-      loop();
+    function renderManualList(matchedPlate = null) {
+      const container = document.getElementById("manualListDisplay");
+      container.innerHTML = "";
+      manualListRaw.forEach(plate => {
+        const line = document.createElement("div");
+        line.textContent = plate;
+        if (matchedPlate && plate === matchedPlate.toUpperCase()) {
+          line.classList.add("match");
+        }
+        container.appendChild(line);
+      });
+    }
+
+    function checkManualListMatch(scanned) {
+      const match = manualListRaw.includes(scanned.toUpperCase());
+      renderManualList(match ? scanned : null);
     }
 
     function saveToFile() {
@@ -42,10 +81,7 @@
     }
 
     function copyLastPlate() {
-      if (lastPlate === "") {
-        alert("No hay matrícula escaneada aún.");
-        return;
-      }
+      if (!lastPlate) return alert("No hay matrícula escaneada aún.");
       navigator.clipboard.writeText(lastPlate).then(() => {
         alert("Última matrícula copiada al portapapeles.");
       });
@@ -53,10 +89,7 @@
 
     function copyAllPlates() {
       const all = document.getElementById("plateLog").value;
-      if (all.trim() === "") {
-        alert("No hay matrículas escaneadas.");
-        return;
-      }
+      if (!all.trim()) return alert("No hay matrículas escaneadas.");
       navigator.clipboard.writeText(all).then(() => {
         alert("Todas las matrículas copiadas al portapapeles.");
       });
@@ -67,22 +100,26 @@
 <body>
   <h3>Escáner de Matrículas</h3>
 
-  <!-- Mostrar la última matrícula escaneada -->
   <p id="lastPlateDisplay" style="font-weight: bold;">Última matrícula: -</p>
 
-  <!-- Botones para copiar -->
   <input onclick="copyLastPlate()" type="button" value="📋 Copiar última matrícula" />
   <input onclick="copyAllPlates()" type="button" value="📋 Copiar todas las matrículas" /><br /><br />
 
-  <!-- Área donde se acumulan las matrículas -->
-  <textarea id="plateLog" rows="10" cols="50" placeholder="Aquí se irán listando las matrículas..."></textarea><br /><br />
+  <textarea id="plateLog" rows="8" cols="50" placeholder="Aquí se irán listando las matrículas..."></textarea><br /><br />
 
   <input onclick="saveToFile()" type="button" value="Guardar archivo con matrículas" />
 
-  <!-- Espaciado de 3 líneas -->
+  <br /><br /><hr><br />
+
+  <h4>Insertar matrículas manuales (una por línea):</h4>
+  <textarea id="manualInput" rows="8" cols="30" placeholder="Ej:\n1234ABC\n5678DEF"></textarea><br>
+  <button onclick="updateManualList()">Actualizar lista</button>
+
+  <h4>Lista con coincidencias marcadas:</h4>
+  <div id="manualListDisplay" class="manual-list"></div>
+
   <br /><br /><br />
 
-  <!-- Botón de escaneo en bucle -->
   <input onclick="startScanningLoop()" type="button" value="🔁 Iniciar escaneo continuo de matrículas" />
 </body>
 </html>
