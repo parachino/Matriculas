@@ -1,10 +1,19 @@
 <html>
 <head>
   <script type="text/javascript">
+    let lastPlate = ""; // Guardamos la última matrícula escaneada
+
     function onscan(scandata) {
       const textarea = document.getElementById("plateLog");
-      textarea.value += scandata + "\n"; // Añadir nueva matrícula
-      alert("License plate result: " + scandata);
+      lastPlate = scandata;
+
+      // Añadir matrícula al log
+      textarea.value += scandata + "\n";
+
+      // Mostrar la última matrícula leída
+      document.getElementById("lastPlateDisplay").innerText = "Última matrícula: " + scandata;
+
+      alert("Matrícula detectada: " + scandata);
     }
 
     function startscan(platefield) {
@@ -20,18 +29,45 @@
       a.click();
       URL.revokeObjectURL(a.href);
     }
+
+    function copyLastPlate() {
+      if (lastPlate === "") {
+        alert("No hay matrícula escaneada aún.");
+        return;
+      }
+      navigator.clipboard.writeText(lastPlate).then(() => {
+        alert("Última matrícula copiada al portapapeles.");
+      });
+    }
+
+    function copyAllPlates() {
+      const all = document.getElementById("plateLog").value;
+      if (all.trim() === "") {
+        alert("No hay matrículas escaneadas.");
+        return;
+      }
+      navigator.clipboard.writeText(all).then(() => {
+        alert("Todas las matrículas copiadas al portapapeles.");
+      });
+    }
   </script>
 </head>
 
 <body>
-  <h3>Escáner de Matrículas - PRUEBAS -</h3>
+  <h3>Escáner de Matrículas</h3>
 
   <input onclick="startscan('platefield1')" type="button" value="Escanear matrícula" /><br /><br />
+
+  <!-- Mostrar la última matrícula escaneada -->
+  <p id="lastPlateDisplay" style="font-weight: bold;">Última matrícula: -</p>
+
+  <!-- Botones para copiar -->
+  <input onclick="copyLastPlate()" type="button" value="📋 Copiar última matrícula" />
+  <input onclick="copyAllPlates()" type="button" value="📋 Copiar todas las matrículas" /><br /><br />
 
   <!-- Área donde se acumulan las matrículas -->
   <textarea id="plateLog" rows="10" cols="50" placeholder="Aquí se irán listando las matrículas..."></textarea><br /><br />
 
   <input onclick="saveToFile()" type="button" value="Guardar archivo con matrículas" />
-
 </body>
 </html>
