@@ -9,7 +9,7 @@
     }
     .match {
       background-color: red;
-      color: white;
+      color: black;
       font-weight: bold;
     }
     textarea, input[type="text"] {
@@ -26,8 +26,10 @@
       margin-bottom: 4px;
     }
     .coincidenceLine {
-      color: red;
+      background-color: red;
+      color: black;
       font-weight: bold;
+      padding: 2px;
     }
   </style>
   <script>
@@ -52,10 +54,14 @@
       if (matchCount > 0) {
         const matches = matchIndices.map(i => manualListRaw[i]);
         addToScanHistory(plate, timestamp, matches);
-        document.getElementById("beep").play();
-        setTimeout(() => {
+        // Reproducir sonido antes de mostrar la alerta
+        document.getElementById("beep").play().then(() => {
+          setTimeout(() => {
+            alert("Coincidencias encontradas:\n" + matches.join("\n"));
+          }, 100); // pequeña espera para no solapar el sonido
+        }).catch(() => {
           alert("Coincidencias encontradas:\n" + matches.join("\n"));
-        }, 300);
+        });
       } else {
         addToScanHistory(plate, timestamp, []);
       }
