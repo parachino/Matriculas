@@ -19,6 +19,9 @@
     let scanning = false;
     let manualListRaw = [];
 
+    // Sonido de alerta embebido (beep simple en base64)
+    const alertSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=");
+
     function onscan(scandata) {
       if (scandata !== lastPlate) {
         lastPlate = scandata;
@@ -27,7 +30,12 @@
         textarea.value += scandata + "\n";
         document.getElementById("lastPlateDisplay").innerText = "Última matrícula: " + scandata;
 
-        checkManualListMatch(scandata);
+        const matched = checkManualListMatch(scandata);
+        if (matched) {
+          alertSound.play();
+          scanning = false; // Se detiene el escaneo automático
+          return;
+        }
       }
 
       if (scanning) {
@@ -40,7 +48,6 @@
     }
 
     function startScanningLoop() {
-      if (scanning) return;
       scanning = true;
       updateManualList();
       startscan('platefield1');
@@ -68,6 +75,7 @@
     function checkManualListMatch(scanned) {
       const match = manualListRaw.includes(scanned.toUpperCase());
       renderManualList(match ? scanned : null);
+      return match;
     }
 
     function saveToFile() {
