@@ -1,71 +1,72 @@
-<html>
+<!DOCTYPE html>
+<html lang="es">
 <head>
+  <meta charset="UTF-8">
+  <title>Lector de Matrículas</title>
   <style>
     .match {
-      color: red;
+      background-color: red;
+      color: white;
       font-weight: bold;
     }
-    .manual-list {
-      white-space: pre-line;
-      border: 1px solid #ccc;
-      padding: 10px;
-      width: 300px;
-      height: 200px;
-      overflow-y: auto;
-    }
   </style>
-  <script type="text/javascript">
-    let lastPlate = "";
+  <script>
     let scanning = false;
     let manualListRaw = [];
 
-    // Sonido de alerta embebido (beep simple en base64)
-    const alertSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=");
-
     function onscan(scandata) {
-      if (scandata !== lastPlate) {
-        lastPlate = scandata;
-
-        const textarea = document.getElementById("plateLog");
-        textarea.value += scandata + "\n";
-        document.getElementById("lastPlateDisplay").innerText = "Última matrícula: " + scandata;
-
-        const matched = checkManualListMatch(scandata);
-        if (matched) {
-          alertSound.play();
-          scanning = false; // Se detiene el escaneo automático
-          return;
-        }
-      }
-
-      if (scanning) {
-        startscan('platefield1');
+      const plate = scandata.toUpperCase();
+      document.getElementById("lastPlate").textContent = plate;
+      addPlate(plate);
+      const matchFound = checkManualListMatch(plate);
+      addToScanHistory(plate, document.getElementById("matchCount").value);
+      if (matchFound) {
+        document.getElementById("beep").play();
+        scanning = false;
+      } else if (scanning) {
+        setTimeout(() => startscan(""), 500);
       }
     }
 
-    function startscan(platefield) {
-      window.location = "readplate://" + platefield;
+    function startscan() {
+      if (!scanning) {
+        scanning = true;
+        setTimeout(() => startscan(""), 500);
+      }
+      window.location = "readplate://dummy";
     }
 
-    function startScanningLoop() {
-      scanning = true;
-      updateManualList();
-      startscan('platefield1');
+    function addPlate(plate) {
+      const list = document.getElementById("platesList");
+      const line = document.createElement("div");
+      line.textContent = plate;
+      list.appendChild(line);
+    }
+
+    function copyLastPlate() {
+      const text = document.getElementById("lastPlate").textContent;
+      navigator.clipboard.writeText(text);
+    }
+
+    function copyAllPlates() {
+      const lines = Array.from(document.getElementById("platesList").children);
+      const text = lines.map(line => line.textContent).join("\n");
+      navigator.clipboard.writeText(text);
     }
 
     function updateManualList() {
-      const raw = document.getElementById("manualInput").value.trim().split("\n");
-      manualListRaw = raw.map(p => p.trim().toUpperCase()).filter(p => p !== "");
-      renderManualList();
+      const raw = document.getElementById("manualListInput").value;
+      manualListRaw = raw.toUpperCase().split(/\n/).map(l => l.trim());
+      renderManualList([]);
     }
 
-    function renderManualList(matchedPlate = null) {
+    function renderManualList(matchedIndices = []) {
       const container = document.getElementById("manualListDisplay");
       container.innerHTML = "";
-      manualListRaw.forEach(plate => {
+      manualListRaw.forEach((plate, index) => {
         const line = document.createElement("div");
         line.textContent = plate;
-        if (matchedPlate && plate === matchedPlate.toUpperCase()) {
+        if (matchedIndices.includes(index)) {
           line.classList.add("match");
         }
         container.appendChild(line);
@@ -73,61 +74,53 @@
     }
 
     function checkManualListMatch(scanned) {
-      const match = manualListRaw.includes(scanned.toUpperCase());
-      renderManualList(match ? scanned : null);
-      return match;
+      const scannedUpper = scanned.toUpperCase();
+      const matches = [];
+      for (let i = 0; i < manualListRaw.length; i++) {
+        if (manualListRaw[i].includes(scannedUpper)) {
+          matches.push(i);
+        }
+      }
+      renderManualList(matches);
+      updateMatchCount(matches.length);
+      return matches.length > 0;
     }
 
-    function saveToFile() {
-      const content = document.getElementById("plateLog").value;
-      const blob = new Blob([content], { type: "text/plain" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "license_plates_log.txt";
-      a.click();
-      URL.revokeObjectURL(a.href);
+    function updateMatchCount(count) {
+      const counter = document.getElementById("matchCount");
+      counter.value = count;
     }
 
-    function copyLastPlate() {
-      if (!lastPlate) return alert("No hay matrícula escaneada aún.");
-      navigator.clipboard.writeText(lastPlate).then(() => {
-        alert("Última matrícula copiada al portapapeles.");
-      });
-    }
-
-    function copyAllPlates() {
-      const all = document.getElementById("plateLog").value;
-      if (!all.trim()) return alert("No hay matrículas escaneadas.");
-      navigator.clipboard.writeText(all).then(() => {
-        alert("Todas las matrículas copiadas al portapapeles.");
-      });
+    function addToScanHistory(plate, count) {
+      const history = document.getElementById("scanHistory");
+      const entry = document.createElement("div");
+      entry.textContent = `${plate} → ${count} coincidencia${count !== "1" ? "s" : ""}`;
+      history.appendChild(entry);
     }
   </script>
 </head>
-
 <body>
-  <h3>Escáner de Matrículas</h3>
+  <h2>Lectura de Matrículas</h2>
+  <p>Última matrícula leída: <strong id="lastPlate">---</strong></p>
+  <button onclick="copyLastPlate()">Copiar última matrícula</button>
+  <button onclick="copyAllPlates()">Copiar todas</button>
+  <br><br>
+  <label>Número de coincidencias:</label>
+  <input type="text" id="matchCount" value="0" readonly style="width: 40px; text-align: center;">
 
-  <p id="lastPlateDisplay" style="font-weight: bold;">Última matrícula: -</p>
+  <h3>📝 Matrículas leídas:</h3>
+  <div id="platesList" style="border: 1px solid #000; padding: 10px; min-height: 100px;"></div>
 
-  <input onclick="copyLastPlate()" type="button" value="📋 Copiar última matrícula" />
-  <input onclick="copyAllPlates()" type="button" value="📋 Copiar todas las matrículas" /><br /><br />
+  <h3>🧾 Lista manual de matrículas:</h3>
+  <textarea id="manualListInput" oninput="updateManualList()" rows="6" cols="40"></textarea>
+  <div id="manualListDisplay" style="border: 1px solid #ccc; padding: 10px; min-height: 100px; margin-top: 10px;"></div>
 
-  <textarea id="plateLog" rows="8" cols="50" placeholder="Aquí se irán listando las matrículas..."></textarea><br /><br />
+  <h3>🕘 Historial de matrículas escaneadas</h3>
+  <div id="scanHistory" style="border: 1px solid #ccc; padding: 10px; min-height: 50px; background: #f9f9f9;"></div>
 
-  <input onclick="saveToFile()" type="button" value="Guardar archivo con matrículas" />
+  <br><br><br>
+  <button onclick="startscan()" style="font-size: 20px">📷 Iniciar escaneo continuo de matrículas</button>
 
-  <br /><br /><hr><br />
-
-  <h4>Insertar matrículas manuales (una por línea):</h4>
-  <textarea id="manualInput" rows="8" cols="30" placeholder="Ej:\n1234ABC\n5678DEF"></textarea><br>
-  <button onclick="updateManualList()">Actualizar lista</button>
-
-  <h4>Lista con coincidencias marcadas:</h4>
-  <div id="manualListDisplay" class="manual-list"></div>
-
-  <br /><br /><br />
-
-  <input onclick="startScanningLoop()" type="button" value="🔁 Iniciar escaneo continuo de matrículas" />
+  <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
 </body>
 </html>
