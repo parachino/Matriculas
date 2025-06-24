@@ -1,7 +1,8 @@
 <html>
 <head>
   <script type="text/javascript">
-    let lastPlate = ""; // Guardamos la última matrícula escaneada
+    let lastPlate = "";
+    let scanning = false;
 
     function onscan(scandata) {
       const textarea = document.getElementById("plateLog");
@@ -12,11 +13,22 @@
 
       // Mostrar la última matrícula leída
       document.getElementById("lastPlateDisplay").innerText = "Última matrícula: " + scandata;
-
     }
 
     function startscan(platefield) {
       window.location = "readplate://" + platefield;
+    }
+
+    function startScanningLoop() {
+      if (scanning) return; // Evitar múltiples bucles si se pulsa más de una vez
+      scanning = true;
+
+      function loop() {
+        startscan('platefield1');
+        setTimeout(loop, 500); // repetir cada 500 milisegundos
+      }
+
+      loop();
     }
 
     function saveToFile() {
@@ -55,7 +67,6 @@
 <body>
   <h3>Escáner de Matrículas</h3>
 
-
   <!-- Mostrar la última matrícula escaneada -->
   <p id="lastPlateDisplay" style="font-weight: bold;">Última matrícula: -</p>
 
@@ -68,8 +79,10 @@
 
   <input onclick="saveToFile()" type="button" value="Guardar archivo con matrículas" />
 
-  
+  <!-- Espaciado de 3 líneas -->
+  <br /><br /><br />
 
-  <input onclick="startscan('platefield1')" type="button" value="Escanear matrícula" /><br /><br />
+  <!-- Botón de escaneo en bucle -->
+  <input onclick="startScanningLoop()" type="button" value="🔁 Iniciar escaneo continuo de matrículas" />
 </body>
 </html>
