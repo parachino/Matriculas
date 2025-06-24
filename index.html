@@ -1,146 +1,173 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Escaneo de Matrículas</title>
+  <meta charset="UTF-8" />
+  <title>Lector de Matrículas</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: sans-serif;
     }
-    textarea {
-      width: 100%;
-      height: 100px;
-      resize: none;
-    }
-    #historial, #listaNegra {
-      width: 100%;
-      height: 150px;
-      resize: none;
-    }
-    .coincidencia {
+    .match {
       background-color: red;
       color: white;
+      font-weight: bold;
     }
-    .separador {
-      margin-top: 3em;
+    textarea, input[type="text"] {
+      resize: none;
+    }
+    #manualListDisplay, #scanHistory {
+      border: 1px solid #000;
+      padding: 10px;
+      min-height: 100px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .line {
+      margin-bottom: 4px;
     }
   </style>
+  <script>
+    let scanning = false;
+    let manualListRaw = [];
+
+    function onscan(scandata) {
+      const plate = scandata.toUpperCase();
+      document.getElementById("lastPlate").textContent = plate;
+      const timestamp = new Date().toLocaleString();
+      const matchCount = checkManualListMatch(plate);
+      addToScanHistory(plate, timestamp, matchCount);
+      if (matchCount > 0) {
+        document.getElementById("beep").play();
+        scanning = false;
+      } else if (scanning) {
+        setTimeout(() => startscan(), 500);
+      }
+    }
+
+    function startscan() {
+      if (!scanning) {
+        scanning = true;
+      }
+      window.location = "readplate://dummy";
+    }
+
+    function copyLastPlate() {
+      const text = document.getElementById("lastPlate").textContent;
+      navigator.clipboard.writeText(text);
+    }
+
+    function copyAllPlates() {
+      const lines = Array.from(document.getElementById("scanHistory").children);
+      const text = lines.map(line => line.textContent).join("\n");
+      navigator.clipboard.writeText(text);
+    }
+
+    function updateManualList() {
+      const raw = document.getElementById("manualListInput").value;
+      manualListRaw = raw.toUpperCase().split(/\n/).map(l => l.trim()).filter(l => l !== "");
+      renderManualList([]);
+    }
+
+    function renderManualList(matchedIndices = []) {
+      const container = document.getElementById("manualListDisplay");
+      container.innerHTML = "";
+      manualListRaw.forEach((plate, index) => {
+        const line = document.createElement("div");
+        line.textContent = plate;
+        line.className = "line";
+        if (matchedIndices.includes(index)) {
+          line.classList.add("match");
+        }
+        container.appendChild(line);
+      });
+    }
+
+    function checkManualListMatch(scanned) {
+      const scannedUpper = scanned.toUpperCase();
+      const matches = [];
+      const matchedLines = [];
+
+      for (let i = 0; i < manualListRaw.length; i++) {
+        if (manualListRaw[i].includes(scannedUpper)) {
+          matches.push(i);
+          matchedLines.push(manualListRaw[i]);
+        }
+      }
+
+      renderManualList(matches);
+      updateMatchCount(matches.length);
+      addMatchesToHistory(matches);
+
+      // Mostrar alerta con las líneas coincidentes
+      if (matchedLines.length > 0) {
+        alert("⚠️ Coincidencias detectadas:\n\n" + matchedLines.join("\n"));
+      }
+
+      return matches.length;
+    }
+
+    function updateMatchCount(count) {
+      document.getElementById("matchCount").value = count;
+    }
+
+    function addMatchesToHistory(matchIndices) {
+      const manualLines = manualListRaw;
+      const history = document.getElementById("scanHistory");
+      matchIndices.forEach(i => {
+        const entry = document.createElement("div");
+        entry.textContent = manualLines[i];
+        entry.className = "match";
+        history.prepend(entry);
+      });
+    }
+
+    function addToScanHistory(plate, timestamp, count) {
+      const history = document.getElementById("scanHistory");
+      const entry = document.createElement("div");
+      entry.textContent = `${plate} – ${timestamp} – ${count} coincidencia${count !== 1 ? "s" : ""}`;
+      entry.className = "line";
+      history.prepend(entry);
+    }
+
+    function loadFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const content = e.target.result;
+        document.getElementById("manualListInput").value = content;
+        updateManualList();
+      };
+      reader.readAsText(file);
+    }
+  </script>
 </head>
 <body>
+  <h2>Lectura de Matrículas</h2>
 
-<h2>Lista negra de matrículas (puedes escribir o cargar un archivo .txt)</h2>
-<textarea id="listaNegra" placeholder="Escribe o carga matrículas prohibidas aquí..."></textarea><br>
-<input type="file" id="archivoListaNegra" accept=".txt">
+  <p>Última matrícula leída: <strong id="lastPlate">---</strong></p>
 
-<h2>Historial de coincidencias</h2>
-<textarea id="historial" readonly></textarea><br>
+  <button onclick="copyLastPlate()">Copiar última matrícula</button>
+  <button onclick="copyAllPlates()">Copiar todas</button>
 
-<label>Número de coincidencias:</label>
-<input type="text" id="contadorCoincidencias" readonly value="0"><br><br>
+  <br><br>
 
-<button onclick="copiarUltima()">Copiar última matrícula leída</button>
-<button onclick="copiarTodas()">Copiar todas las coincidencias</button>
+  <label>Número de coincidencias:</label>
+  <input type="text" id="matchCount" value="0" readonly style="width: 40px; text-align: center;" />
 
-<div class="separador"></div>
+  <h3>🧾 Lista manual de matrículas (lista negra):</h3>
+  <input type="file" accept=".txt" onchange="loadFile(event)" />
+  <br><br>
+  <textarea id="manualListInput" oninput="updateManualList()" rows="6" cols="40" style="width: 100%;"></textarea>
+  <div id="manualListDisplay"></div>
 
-<button onclick="iniciarEscaneo()">Iniciar escaneo continuo</button>
+  <h3>📋 Historial de lecturas (última arriba):</h3>
+  <div id="scanHistory"></div>
 
-<script>
-  let escaneando = false;
-  let historial = [];
-  let coincidencias = [];
+  <br><br><br>
 
-  function onscan(scandata) {
-    if (!escaneando) return;
+  <button onclick="startscan()" style="font-size: 20px">📷 Iniciar escaneo continuo de matrículas</button>
 
-    const fecha = new Date().toLocaleString();
-    const coincidenciasLista = obtenerListaNegra();
-    const coincidenciasEncontradas = [];
-
-    const entrada = `${scandata} - ${fecha}`;
-    
-    // Buscar coincidencias
-    coincidenciasLista.forEach(matricula => {
-      if (entrada.includes(matricula)) {
-        coincidenciasEncontradas.push(matricula);
-      }
-    });
-
-    const linea = `${scandata} - ${fecha}` + (coincidenciasEncontradas.length > 0 ? ` - coincidencias: ${coincidenciasEncontradas.join(', ')}` : '');
-
-    // Insertar la nueva entrada al principio del historial
-    historial.unshift(linea);
-
-    // Si hay coincidencias, marcar y detener escaneo
-    if (coincidenciasEncontradas.length > 0) {
-      coincidencias.unshift(linea);
-      actualizarHistorial();
-      document.getElementById("contadorCoincidencias").value = coincidencias.length;
-
-      // Alerta con TODAS las coincidencias actuales
-      alert("¡Coincidencias detectadas!\n\n" + coincidencias.join("\n"));
-
-      escaneando = false;
-      return;
-    }
-
-    actualizarHistorial();
-
-    // Continuar escaneo
-    if (escaneando) {
-      setTimeout(() => simularLectura(), 1000); // simular escaneo continuo
-    }
-  }
-
-  function obtenerListaNegra() {
-    return document.getElementById("listaNegra").value
-      .split("\n")
-      .map(m => m.trim())
-      .filter(m => m.length > 0);
-  }
-
-  function actualizarHistorial() {
-    const campoHistorial = document.getElementById("historial");
-    campoHistorial.value = coincidencias.join("\n");
-  }
-
-  function iniciarEscaneo() {
-    escaneando = true;
-    simularLectura();
-  }
-
-  function simularLectura() {
-    // Aquí deberías integrar la llamada real al escáner de matrículas
-    // Para prueba, genera una matrícula aleatoria
-    const placasPrueba = ["1234ABC", "5678DEF", "1111AAA", "9999ZZZ", "TEST123"];
-    const aleatoria = placasPrueba[Math.floor(Math.random() * placasPrueba.length)];
-    onscan(aleatoria);
-  }
-
-  function copiarUltima() {
-    if (historial.length > 0) {
-      navigator.clipboard.writeText(historial[0]);
-      alert("Última matrícula copiada.");
-    }
-  }
-
-  function copiarTodas() {
-    navigator.clipboard.writeText(coincidencias.join("\n"));
-    alert("Todas las coincidencias copiadas.");
-  }
-
-  // Cargar archivo de lista negra
-  document.getElementById("archivoListaNegra").addEventListener("change", function () {
-    const file = this.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      document.getElementById("listaNegra").value = e.target.result;
-    };
-    reader.readAsText(file);
-  });
-</script>
-
+  <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
 </body>
 </html>
