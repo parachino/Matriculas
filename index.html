@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <title>Lector de Matrículas</title>
   <style>
-    body {
-      font-family: sans-serif;
-    }
+    body { font-family: sans-serif; }
     .match {
       background-color: red;
       color: white;
@@ -29,6 +27,7 @@
   <script>
     let scanning = false;
     let manualListRaw = [];
+    let alertPlayedForPlates = new Set();
 
     function onscan(scandata) {
       const plate = scandata.toUpperCase();
@@ -36,8 +35,11 @@
       const timestamp = new Date().toLocaleString();
       const matchCount = checkManualListMatch(plate);
       addToScanHistory(plate, timestamp, matchCount);
-      if (matchCount > 0) {
+
+      // Solo sonar si es la primera vez que se detecta esa matrícula con coincidencia
+      if (matchCount > 0 && !alertPlayedForPlates.has(plate)) {
         document.getElementById("beep").play();
+        alertPlayedForPlates.add(plate);
         scanning = false;
       } else if (scanning) {
         setTimeout(() => startscan(), 500);
@@ -45,9 +47,7 @@
     }
 
     function startscan() {
-      if (!scanning) {
-        scanning = true;
-      }
+      if (!scanning) scanning = true;
       window.location = "readplate://dummy";
     }
 
@@ -75,9 +75,7 @@
         const line = document.createElement("div");
         line.textContent = plate;
         line.className = "line";
-        if (matchedIndices.includes(index)) {
-          line.classList.add("match");
-        }
+        if (matchedIndices.includes(index)) line.classList.add("match");
         container.appendChild(line);
       });
     }
@@ -98,7 +96,7 @@
       updateMatchCount(matches.length);
       addMatchesToHistory(matches);
 
-      // Mostrar alerta con las líneas coincidentes
+      // Mostrar alerta solo si hay líneas coincidentes
       if (matchedLines.length > 0) {
         alert("⚠️ Coincidencias detectadas:\n\n" + matchedLines.join("\n"));
       }
@@ -140,6 +138,19 @@
       };
       reader.readAsText(file);
     }
+
+    function downloadHistory() {
+      const lines = Array.from(document.getElementById("scanHistory").children);
+      const text = lines.map(line => line.textContent).join("\n");
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "historial_matriculas.txt";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   </script>
 </head>
 <body>
@@ -147,8 +158,9 @@
 
   <p>Última matrícula leída: <strong id="lastPlate">---</strong></p>
 
-  <button onclick="copyLastPlate()">Copiar última matrícula</button>
-  <button onclick="copyAllPlates()">Copiar todas</button>
+  <button onclick="copyLastPlate()">📋 Copiar última matrícula</button>
+  <button onclick="copyAllPlates()">📋 Copiar todas</button>
+  <button onclick="downloadHistory()">💾 Guardar historial</button>
 
   <br><br>
 
