@@ -46,28 +46,37 @@
   <script>
     let scanning = false;
     let manualListRaw = [];
-    let lastPlateSeen = ""; // para el historial
+    let lastPlateSeen = "";
 
     function onscan(scandata) {
       const plate = scandata.toUpperCase();
       document.getElementById("lastPlate").textContent = plate;
 
       const timestamp = new Date().toLocaleString();
-
       const matchIndices = getMatchingIndices(plate);
       renderManualList(matchIndices);
       updateMatchCount(matchIndices.length);
 
-      if (plate !== lastPlateSeen) {
-        addToScanHistory(plate, timestamp, matchIndices.length);
-        lastPlateSeen = plate;
-      }
-
+      // Mostrar alerta sonora y visual si hay coincidencias
       if (matchIndices.length > 0) {
         document.getElementById("beep").play();
         setTimeout(() => {
           alert(getAllMatchedLines().join('\n'));
         }, 100);
+      }
+
+      // Solo insertar la matrícula en el historial si no es repetida
+      if (plate !== lastPlateSeen) {
+        lastPlateSeen = plate;
+
+        if (matchIndices.length > 0) {
+          matchIndices.forEach(index => {
+            const matchedLine = manualListRaw[index];
+            addToScanHistory(`${plate} – ${timestamp} – "${matchedLine}"`);
+          });
+        } else {
+          addToScanHistory(`${plate} – ${timestamp} – sin coincidencias`);
+        }
       }
 
       if (scanning) {
@@ -115,19 +124,18 @@
       return manualListRaw.map((entry, i) => entry.includes(plate) ? i : -1).filter(i => i >= 0);
     }
 
+    function getAllMatchedLines() {
+      return Array.from(document.querySelectorAll("#manualListDisplay .match")).map(el => el.textContent);
+    }
+
     function updateMatchCount(count) {
       document.getElementById("matchCount").value = count;
     }
 
-    function getAllMatchedLines() {
-      return Array.from(document.querySelectorAll("#manualListDisplay .match"))
-                  .map(el => el.textContent);
-    }
-
-    function addToScanHistory(plate, timestamp, matchCount) {
+    function addToScanHistory(text) {
       const history = document.getElementById("scanHistory");
       const entry = document.createElement("div");
-      entry.textContent = `${plate} – ${timestamp} – ${matchCount} coincidencia${matchCount !== 1 ? "s" : ""}`;
+      entry.textContent = text;
       entry.className = "line";
       history.prepend(entry);
     }
