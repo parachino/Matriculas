@@ -26,7 +26,7 @@
       margin-bottom: 4px;
     }
     .coincidenceLine {
-      background-color: red;
+      background-color: orange;
       color: black;
       font-weight: bold;
       padding: 2px;
@@ -40,7 +40,7 @@
     function onscan(scandata) {
       const plate = scandata.toUpperCase();
       if (plate === lastPlateSeen) {
-        if (scanning) setTimeout(() => startscan(), 500);
+        if (scanning) setTimeout(() => startscan(), 250);
         return;
       }
       lastPlateSeen = plate;
