@@ -1,13 +1,29 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Lector de Matrículas</title>
   <style>
+    body {
+      font-family: sans-serif;
+    }
     .match {
       background-color: red;
       color: white;
       font-weight: bold;
+    }
+    textarea, input[type="text"] {
+      resize: none;
+    }
+    #platesList, #manualListDisplay, #scanHistory {
+      border: 1px solid #000;
+      padding: 10px;
+      min-height: 100px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .line {
+      margin-bottom: 4px;
     }
   </style>
   <script>
@@ -17,30 +33,31 @@
     function onscan(scandata) {
       const plate = scandata.toUpperCase();
       document.getElementById("lastPlate").textContent = plate;
-      addPlate(plate);
-      const matchFound = checkManualListMatch(plate);
-      addToScanHistory(plate, document.getElementById("matchCount").value);
-      if (matchFound) {
+      const timestamp = new Date().toLocaleString();
+      const matchCount = checkManualListMatch(plate);
+      addPlateToList(plate);
+      addToScanHistory(plate, timestamp, matchCount);
+      if (matchCount > 0) {
         document.getElementById("beep").play();
         scanning = false;
       } else if (scanning) {
-        setTimeout(() => startscan(""), 500);
+        setTimeout(() => startscan(), 500);
       }
     }
 
     function startscan() {
       if (!scanning) {
         scanning = true;
-        setTimeout(() => startscan(""), 500);
       }
       window.location = "readplate://dummy";
     }
 
-    function addPlate(plate) {
+    function addPlateToList(plate) {
       const list = document.getElementById("platesList");
       const line = document.createElement("div");
       line.textContent = plate;
-      list.appendChild(line);
+      line.className = "line";
+      list.prepend(line);
     }
 
     function copyLastPlate() {
@@ -66,6 +83,7 @@
       manualListRaw.forEach((plate, index) => {
         const line = document.createElement("div");
         line.textContent = plate;
+        line.className = "line";
         if (matchedIndices.includes(index)) {
           line.classList.add("match");
         }
@@ -83,44 +101,61 @@
       }
       renderManualList(matches);
       updateMatchCount(matches.length);
-      return matches.length > 0;
+      addMatchesToHistory(matches);
+      return matches.length;
     }
 
     function updateMatchCount(count) {
-      const counter = document.getElementById("matchCount");
-      counter.value = count;
+      document.getElementById("matchCount").value = count;
     }
 
-    function addToScanHistory(plate, count) {
+    function addMatchesToHistory(matchIndices) {
+      const manualLines = manualListRaw;
+      const history = document.getElementById("scanHistory");
+      matchIndices.forEach(i => {
+        const entry = document.createElement("div");
+        entry.textContent = manualLines[i];
+        entry.className = "match";
+        history.prepend(entry);
+      });
+    }
+
+    function addToScanHistory(plate, timestamp, count) {
       const history = document.getElementById("scanHistory");
       const entry = document.createElement("div");
-      entry.textContent = `${plate} → ${count} coincidencia${count !== "1" ? "s" : ""}`;
-      history.appendChild(entry);
+      entry.textContent = `${plate} – ${timestamp} – ${count} coincidencia${count !== 1 ? "s" : ""}`;
+      entry.className = "line";
+      history.prepend(entry);
     }
   </script>
 </head>
 <body>
   <h2>Lectura de Matrículas</h2>
+
   <p>Última matrícula leída: <strong id="lastPlate">---</strong></p>
+
   <button onclick="copyLastPlate()">Copiar última matrícula</button>
   <button onclick="copyAllPlates()">Copiar todas</button>
-  <br><br>
-  <label>Número de coincidencias:</label>
-  <input type="text" id="matchCount" value="0" readonly style="width: 40px; text-align: center;">
 
-  <h3>📝 Matrículas leídas:</h3>
-  <div id="platesList" style="border: 1px solid #000; padding: 10px; min-height: 100px;"></div>
+  <br><br>
+
+  <label>Número de coincidencias:</label>
+  <input type="text" id="matchCount" value="0" readonly style="width: 40px; text-align: center;" />
+
+  <h3>📝 Matrículas leídas (última arriba):</h3>
+  <div id="platesList"></div>
 
   <h3>🧾 Lista manual de matrículas:</h3>
-  <textarea id="manualListInput" oninput="updateManualList()" rows="6" cols="40"></textarea>
-  <div id="manualListDisplay" style="border: 1px solid #ccc; padding: 10px; min-height: 100px; margin-top: 10px;"></div>
+  <textarea id="manualListInput" oninput="updateManualList()" rows="6" cols="40" style="width: 100%;"></textarea>
+  <div id="manualListDisplay"></div>
 
-  <h3>🕘 Historial de matrículas escaneadas</h3>
-  <div id="scanHistory" style="border: 1px solid #ccc; padding: 10px; min-height: 50px; background: #f9f9f9;"></div>
+  <h3>📋 Historial de lecturas (última arriba):</h3>
+  <div id="scanHistory"></div>
 
   <br><br><br>
+
   <button onclick="startscan()" style="font-size: 20px">📷 Iniciar escaneo continuo de matrículas</button>
 
-  <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
+  <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
 </body>
 </html>
