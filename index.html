@@ -14,12 +14,10 @@
       font-weight: bold;
     }
     textarea, input[type="text"] {
-      display: none;
       resize: none;
-      font-size: 8px;
+      font-size: 10px;
     }
     #manualListDisplay {
-      display: none;
       border: 1px solid #000;
       padding: 2px;
       min-height: 100px;
@@ -27,7 +25,7 @@
       font-size: 8px;
       overflow-y: auto;
     }
-      #scanHistory {
+    #scanHistory {
       border: 1px solid #000;
       padding: 2px;
       min-height: 250px;
@@ -50,14 +48,21 @@
     let manualListRaw = [];
     let lastPlateSeen = null;
 
+    // --- FUNCIÓN PRINCIPAL DE ESCANEO ---
     function onscan(scandata) {
-      const plate = scandata.toUpperCase();
-      if (plate === lastPlateSeen) {
+      const plate = scandata.toUpperCase().trim();
+      if (plate === "" || plate === lastPlateSeen) {
         if (scanning) setTimeout(() => startscan(), 250);
         return;
       }
+
       lastPlateSeen = plate;
-      document.getElementById("lastPlate").textContent = plate;
+      document.getElementById("plateInput").value = plate;
+      verificarMatricula(plate);
+    }
+
+    // --- FUNCIÓN DE VERIFICACIÓN ---
+    function verificarMatricula(plate) {
       const timestamp = new Date().toLocaleString();
       const matchIndices = getMatchIndices(plate);
       const matchCount = matchIndices.length;
@@ -65,15 +70,16 @@
       renderManualList(matchIndices);
 
       if (matchCount > 0) {
+        scanning = false; // detener escaneo
         const matches = matchIndices.map(i => manualListRaw[i]);
         addToScanHistory(plate, timestamp, matches);
-        // Reproducir sonido antes de mostrar la alerta
+
         document.getElementById("beep").play().then(() => {
           setTimeout(() => {
-            alert("Coincidencias encontradas:\n" + matches.join("\n"));
-          }, 100); // pequeña espera para no solapar el sonido
+            alert("🚨 Coincidencias encontradas:\n" + matches.join("\n"));
+          }, 100);
         }).catch(() => {
-          alert("Coincidencias encontradas:\n" + matches.join("\n"));
+          alert("🚨 Coincidencias encontradas:\n" + matches.join("\n"));
         });
       } else {
         addToScanHistory(plate, timestamp, []);
@@ -85,14 +91,23 @@
     }
 
     function startscan() {
-      if (!scanning) {
-        scanning = true;
-      }
+      scanning = true;
       window.location = "readplate://dummy";
     }
 
+    // --- BOTÓN COPIAR Y ABRIR WEB ---
+    async function copyAndOpen() {
+      const plate = document.getElementById("plateInput").value.trim();
+      if (plate === "") {
+        alert("No hay matrícula para copiar.");
+        return;
+      }
+      await navigator.clipboard.writeText(plate);
+      window.open("https://parachino.github.io/BD-RIESGO/", "_blank");
+    }
+
     function copyLastPlate() {
-      const text = document.getElementById("lastPlate").textContent;
+      const text = document.getElementById("plateInput").value;
       navigator.clipboard.writeText(text);
     }
 
@@ -102,6 +117,7 @@
       navigator.clipboard.writeText(text);
     }
 
+    // --- LISTA NEGRA ---
     function updateManualList() {
       const raw = document.getElementById("manualListInput").value;
       manualListRaw = raw.toUpperCase().split(/\n/).map(l => l.trim()).filter(l => l !== "");
@@ -138,7 +154,6 @@
 
     function addToScanHistory(plate, timestamp, matchedLines) {
       const history = document.getElementById("scanHistory");
-
       const entry = document.createElement("div");
       entry.className = "line";
       entry.textContent = `${plate} – ${timestamp} – coincidencias: ${matchedLines.length}`;
@@ -163,17 +178,30 @@
       };
       reader.readAsText(file);
     }
+
+    // --- DETECTAR ENTER EN EL INPUT ---
+    window.addEventListener("DOMContentLoaded", () => {
+      const input = document.getElementById("plateInput");
+      input.addEventListener("keypress", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const plate = input.value.toUpperCase().trim();
+          if (plate !== "") verificarMatricula(plate);
+        }
+      });
+    });
   </script>
 </head>
 <body>
 
-  <p>
-  <span style="font-size: 20px;">Matrícula:   </span>
-  <span style="font-size: 35px; font-weight: bold;"><strong id="lastPlate">-------</strong> </span>
-  </p>
+  <h2>📸 Lector de Matrículas</h2>
 
-  <button onclick="copyLastPlate()" style="font-size: 14px">Copiar última matrícula</button>
-  <button onclick="copyAllPlates()"style="font-size: 14px">Copiar todas</button>
+  <label for="plateInput" style="font-size:16px;">Matrícula detectada o manual:</label><br>
+  <input type="text" id="plateInput" style="font-size:25px; font-weight:bold; text-transform:uppercase; width:200px; text-align:center;" placeholder="-------" />
+  <br><br>
+
+  <button onclick="copyAndOpen()" style="font-size:14px;">Copiar matrícula y abrir BD-RIESGO</button>
+  <button onclick="copyAllPlates()" style="font-size:14px;">Copiar todas</button>
 
   <br><br>
 
@@ -183,21 +211,16 @@
   <h3>🧾 Lista negra:</h3>
   <input type="file" accept=".txt" onchange="loadFile(event)" />
   <br><br>
-  <textarea id="manualListInput" oninput="updateManualList()" rows="6" cols="40" style="width: 100%;"></textarea>
+  <textarea id="manualListInput" oninput="updateManualList()" rows="6" cols="40" style="width:100%;"></textarea>
   <div id="manualListDisplay"></div>
 
   <h3>📋 Historial de lecturas:</h3>
   <div id="scanHistory"></div>
 
-  <br><br><br>
+  <br><br>
+  <button onclick="startscan()" style="font-size:45px;">📷 Iniciar LPR</button>
 
-  <button onclick="startscan()" style="font-size: 45px">📷 Iniciar LPR  </button>
-
-  <p>
-  <span style="font-size: 8px;">manuelrodriguezlorenzo@gmail.com  </span>
-  <span style="font-size: 6px;">©️ </span>
-  </p>
-  
+  <p style="font-size:8px;">manuelrodriguezlorenzo@gmail.com ©️</p>
 
   <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
 </body>
